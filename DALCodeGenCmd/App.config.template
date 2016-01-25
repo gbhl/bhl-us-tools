@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+  <appSettings>
+    <add key="DatabaseServer" value="DATABASE SERVER NAME"/>
+    <add key="DatabaseName" value="DATABASE NAME"/>
+    <add key="DatabaseUsername" value="DATABASE USERNAME"/>
+    <add key="DatabasePassword" value="DATABASE PASSWORD"/>
+    <add key="OutputFolder" value="output"/>
+    <add key="ObjectType" value="Table"/>
+    <add key="ObjectSchema" value="dbo"/>
+    <add key="ObjectName" value=""/>
+    <add key="AbstractClassNamespace" value="MOBOT.BHL.DataObjects"/>
+    <add key="GenerateConcreteClass" value="True"/>
+    <add key="DalNamespace" value="MOBOT.BHL.DAL"/>
+    <add key="GenerateDalPublicClass" value="True"/>
+    <add key="DalConnectionKey" value="BHL"/>
+    <add key="GenerateInterface" value="False"/>
+    <add key="InterfaceNamespace" value="MOBOT.BHL.DAL"/>
+  </appSettings>
+  <startup> 
+      <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.5.2" />
+  </startup>
+</configuration>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Languages>
+	<Language Type="C#">
+		<Type From="attribute" To="Attribut" />
+    <Type From="action" To="ActionClass" />
+	</Language>
+</Languages>
