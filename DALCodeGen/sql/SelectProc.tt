@@ -1,0 +1,98 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".txt" #>
+
+<# 
+renderSqlSelect(this._columns.ToArray(), this._objectSchema, this._objectName, this._procedureName); 
+#>
+
+<#+
+	private void renderSqlSelect(DBColumn[] columns, string schemaName, string objectName, string procedureName)
+	{
+		DateTime generated = DateTime.Now;
+		StringBuilder entrySb = new StringBuilder();
+		StringBuilder columnSb = new StringBuilder();
+		StringBuilder whereSb = new StringBuilder();
+		
+		int x = 0;
+		int y = 0;
+	
+		foreach (DBColumn column in columns)
+		{
+			if (column.IsInPrimaryKey)
+			{
+				if (x > 0)
+				{
+					entrySb.AppendFormat(",\r\n");
+					whereSb.AppendFormat(" AND\r\n");
+				}
+				
+				entrySb.AppendFormat("@{0} {1}", column.Name, column.DataTypeNameComplete.ToUpper());
+				whereSb.AppendFormat("\t[{0}] = @{0}", column.Name);
+
+				x++;
+			}
+
+			if (y > 0) columnSb.AppendFormat(",\r\n");			
+			columnSb.AppendFormat("\t[{0}]", column.Name);			
+			y++;
+		}
+
+		string entryString = entrySb.ToString();
+		string columnString = columnSb.ToString();
+		string whereString = whereSb.ToString();
+
+		entrySb = null;
+		columnSb = null;
+		whereSb = null;
+#>
+IF EXISTS(SELECT * FROM dbo.sysobjects WHERE id = object_id(N'[<#= schemaName #>].[<#= procedureName #>]') AND OBJECTPROPERTY(id, N'IsProcedure') = 1)
+DROP PROCEDURE [<#= schemaName #>].[<#= procedureName #>]
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
+-- Select Procedure for <#= schemaName #>.<#= objectName #>
+-- Do not modify the contents of this procedure.
+-- Generated <#= generated.ToString() #>
+
+CREATE PROCEDURE [<#= schemaName #>].[<#= procedureName #>]
+
+<#= entryString #>
+
+AS 
+
+SET NOCOUNT ON
+
+SELECT	
+<#= columnString #>
+FROM	
+	[<#= schemaName #>].[<#= objectName #>]
+WHERE	
+<#= whereString #>
+
+IF @@ERROR <> 0
+BEGIN
+	-- raiserror will throw a SqlException
+	RAISERROR('An error occurred in procedure <#= schemaName #>.<#= procedureName #>. No information was selected.', 16, 1)
+	RETURN 9 -- error occurred
+END
+ELSE BEGIN
+	RETURN -- select successful
+END
+
+GO
+ 
+SET QUOTED_IDENTIFIER OFF
+GO
+SET ANSI_NULLS ON
+GO
+<#+	
+	}
+#>

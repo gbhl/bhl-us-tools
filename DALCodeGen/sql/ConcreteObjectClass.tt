@@ -1,0 +1,31 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".txt" #>
+
+<# 
+renderConcreteClass(this._classNamespace, this._objectName, this._className); 
+#>
+
+<#+
+private void renderConcreteClass(string classNamespace, string objectName, string className)
+{
+#>
+#region Using
+
+using System;
+
+#endregion Using
+
+namespace <#= classNamespace #>
+{
+	[Serializable]
+	public class <#= objectName #> : <#= className #>
+	{
+	}
+}
+<#+	
+}
+#>

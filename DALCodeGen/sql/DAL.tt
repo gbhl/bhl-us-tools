@@ -1,0 +1,786 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".txt" #>
+
+<# 
+renderDAL(this._objectSchema, this._objectName, this._objectNameClean, this._className, this._classNamespace, this._dalNamespace, this._interfaceName, this._connectionKey, this._columns);
+#>
+
+<#+
+private void renderDAL(string objectSchema, string objectName, string objectNameClean, string className, string classNamespace, string dalNamespace, string interfaceName, string connectionKey, List<DBColumn> columns)
+{
+	DateTime generated = DateTime.Now;
+
+	string insertProcName = string.Format("{0}InsertAuto", objectNameClean);
+	string updateProcName = string.Format("{0}UpdateAuto", objectNameClean);
+	string deleteProcName = string.Format("{0}DeleteAuto", objectNameClean);
+	string selectProcName = string.Format("{0}SelectAuto", objectNameClean);
+	string manageProcName = string.Format("{0}ManageAuto", objectNameClean);
+		
+	string insertParmsString;
+	string deleteParmsString;
+	string updateParmsString;
+		
+	string interfaceString = string.Empty;
+	if (!string.IsNullOrWhiteSpace(interfaceName)) interfaceString = string.Format(": {0}", interfaceName);
+#>
+// Generated <#= generated.ToString() #>
+// Do not modify the contents of this code file.
+// This is part of a data access layer. 
+// This partial class <#= className #> is based upon <#= objectSchema #>.<#= objectName #>.
+
+#region How To Implement
+
+// To implement, create another code file as outlined in the following example.
+// The code file you create must be in the same project as this code file.
+// Example:
+// using System;
+//
+// namespace <#= dalNamespace #>
+// {
+// 		public partial class <#= className #>
+//		{
+//		}
+// }
+
+#endregion How To Implement
+
+#region using
+
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using CustomDataAccess;
+using <#= classNamespace #>;
+
+#endregion using
+
+namespace <#= dalNamespace #>
+{
+	partial class <#= className #> <#= interfaceString #>
+	{
+<#+ renderDalSelect(columns, objectSchema, objectNameClean, selectProcName, connectionKey); #>
+<#+ insertParmsString = renderDalInsert(columns, objectSchema, objectNameClean, insertProcName, connectionKey); #>
+<#+ deleteParmsString = renderDalDelete(columns, objectSchema, objectNameClean, deleteProcName, connectionKey); #>
+<#+ updateParmsString = renderDalUpdate(columns, objectSchema, objectNameClean, updateProcName, connectionKey); #>
+<#+ renderCsDalManage(objectSchema, objectNameClean, manageProcName, insertProcName, insertParmsString, deleteProcName, deleteParmsString, updateProcName, updateParmsString, connectionKey); #>
+	}	
+}
+<#+	
+}
+#>
+
+<#+
+	private void renderDalSelect(List<DBColumn> columns, string objectSchema, string objectName, string functionName, string connectionKey)
+	{
+		StringBuilder commandParmsSb = new StringBuilder();
+		StringBuilder functionParmsSb = new StringBuilder();
+		StringBuilder functionSb = new StringBuilder();
+		StringBuilder docSb = new StringBuilder();
+		int x = 0;
+		int y = 0;
+		foreach (DBColumn column in columns)
+		{
+			string size = "null";
+			if (column.CharacterMaxLength > 0) size = column.CharacterMaxLength.ToString();
+			
+			if (column.IsInPrimaryKey)
+			{
+				if (x > 0) commandParmsSb.AppendFormat(",\r\n\t\t\t\t\t");
+
+				commandParmsSb.AppendFormat("CustomSqlHelper.CreateInputParameter(\"{0}\", {1}, {2}, {3}, {4})", 
+					column.Name, column.DataProviderType, size, 
+					column.IsNullable.ToString().ToLower(), column.ParamName());
+					
+				docSb.AppendFormat("\r\n\t\t/// <param name=\"{0}\"></param>", column.ParamName());
+				
+				x++;
+							
+				if (y > 0)
+				{
+					functionParmsSb.AppendFormat(",\r\n\t\t\t");
+					functionSb.Append(", " );
+				}
+
+				functionParmsSb.AppendFormat("{0} {1}",  column.Type(), column.ParamName());
+				functionSb.Append( column.ParamName() );
+				y++;
+			}			
+		}
+		
+		string commandParmsString = commandParmsSb.ToString();
+		string functionParmsString = functionParmsSb.ToString();
+		string functionString = functionSb.ToString();
+		string docString = docSb.ToString();
+		
+		commandParmsSb = null;
+		functionParmsSb = null;
+		functionSb = null;
+		docSb = null;
+		
+#> 		#region ===== SELECT =====
+
+		/// <summary>
+		/// Select values from <#= objectSchema #>.<#= objectName #> by primary key(s).
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param><#= docString #>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			<#= functionParmsString #>)
+		{
+			return <#= functionName #>(	sqlConnection, sqlTransaction, "<#= connectionKey #>",	<#= functionString #> );
+		}
+			
+		/// <summary>
+		/// Select values from <#= objectSchema #>.<#= objectName #> by primary key(s).
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="connectionKeyName">Connection key name located in config file.</param><#= docString #>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			string connectionKeyName,
+			<#= functionParmsString #> )
+		{
+			SqlConnection connection = CustomSqlHelper.CreateConnection(CustomSqlHelper.GetConnectionStringFromConnectionStrings( connectionKeyName ), sqlConnection);
+			SqlTransaction transaction = sqlTransaction;
+			
+			using (SqlCommand command = CustomSqlHelper.CreateCommand("<#= functionName #>", connection, transaction, 
+				<#= commandParmsString #>))
+			{
+				using (CustomSqlHelper<<#= objectName #>> helper = new CustomSqlHelper<<#= objectName #>>())
+				{
+					CustomGenericList<<#= objectName #>> list = helper.ExecuteReader(command);
+					if (list.Count > 0)
+					{
+						<#= objectName #> o = list[0];
+						list = null;
+						return o;
+					}
+					else
+					{
+						return null;
+					}
+				}
+			}
+		}
+		
+		/// <summary>
+		/// Select values from <#= objectSchema #>.<#= objectName #> by primary key(s).
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param><#= docString #>
+		/// <returns>CustomGenericList&lt;CustomDataRow&gt;</returns>
+		public CustomGenericList<CustomDataRow> <#= functionName #>Raw(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			<#= functionParmsString #>)
+		{
+			return <#= functionName #>Raw( sqlConnection, sqlTransaction, "<#= connectionKey #>", <#= functionString #> );
+		}
+		
+		/// <summary>
+		/// Select values from <#= objectSchema #>.<#= objectName #> by primary key(s).
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="connectionKeyName">Connection key name located in config file.</param><#= docString #>
+		/// <returns>CustomGenericList&lt;CustomDataRow&gt;</returns>
+		public CustomGenericList<CustomDataRow> <#= functionName #>Raw(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			string connectionKeyName,
+			<#= functionParmsString #>)
+		{
+			SqlConnection connection = CustomSqlHelper.CreateConnection(CustomSqlHelper.GetConnectionStringFromConnectionStrings(connectionKeyName), sqlConnection);
+			SqlTransaction transaction = sqlTransaction;
+			
+			using (SqlCommand command = CustomSqlHelper.CreateCommand("<#= functionName #>", connection, transaction,
+				<#= commandParmsString #>))
+			{
+				return CustomSqlHelper.ExecuteReaderAndReturnRows(command);
+			}
+		}
+		
+		#endregion ===== SELECT =====
+
+<#+
+	}
+#>
+
+<#+
+	private string renderDalInsert(List<DBColumn> columns, string objectSchema, string objectName, string functionName, string connectionKey)
+	{
+		StringBuilder commandParmsSb = new StringBuilder();
+		StringBuilder functionParmsSb = new StringBuilder();
+		StringBuilder functionSb = new StringBuilder();
+		StringBuilder docSb = new StringBuilder();
+		StringBuilder valueParmsSb = new StringBuilder();
+		
+		int x = 0;
+		int y = 0;
+		foreach (DBColumn column in columns)
+		{
+			if (!DataAccess.isModifiedDate(column) &&
+				!DataAccess.isCreatedDate(column) &&
+				!DataAccess.isAuthorityId(column) )
+			{
+				string size = "null";
+				if (column.CharacterMaxLength > 0) size = column.CharacterMaxLength.ToString();
+				
+				if (column.IsAutoKey)
+				{
+					if (x > 0) commandParmsSb.AppendFormat(",\r\n\t\t\t\t\t");
+	
+					commandParmsSb.AppendFormat("CustomSqlHelper.CreateOutputParameter(\"{0}\", {1}, {2}, {3})", 
+						column.Name, column.DataProviderType, size,
+						column.IsNullable.ToString().ToLower());
+					x++;
+				}
+				else if (column.IsComputed)
+				{
+				}
+				else
+				{
+					if (x > 0) commandParmsSb.AppendFormat(",\r\n\t\t\t\t\t");
+	
+					commandParmsSb.AppendFormat("CustomSqlHelper.CreateInputParameter(\"{0}\", {1}, {2}, {3}, {4})", 
+						column.Name, column.DataProviderType, size, 
+						column.IsNullable.ToString().ToLower(), column.ParamName());
+						
+					docSb.AppendFormat("\r\n\t\t/// <param name=\"{0}\"></param>", column.ParamName());
+					
+					x++;
+					
+					if (y > 0)
+					{
+						functionParmsSb.AppendFormat(",\r\n\t\t\t");
+						functionSb.Append( ", " );
+						valueParmsSb.AppendFormat(",\r\n\t\t\t\t");
+					}
+	
+					functionParmsSb.AppendFormat("{0} {1}", column.Type(), column.ParamName());
+					functionSb.Append( column.ParamName());					
+					valueParmsSb.AppendFormat("value.{0}", column.Alias);
+						
+					y++;
+				}
+			}
+		}
+		
+		commandParmsSb.AppendFormat(", \r\n\t\t\t\t\tCustomSqlHelper.CreateReturnValueParameter(\"ReturnCode\", SqlDbType.Int, null, false)");
+		
+		string commandParmsString = commandParmsSb.ToString();
+		string functionParmsString = functionParmsSb.ToString();
+		string functionString = functionSb.ToString();
+		string docString = docSb.ToString();
+		string valueParmsString = valueParmsSb.ToString();
+		
+		commandParmsSb = null;
+		functionParmsSb = null;
+		functionSb = null;
+		docSb = null;
+		valueParmsSb = null;
+		
+#> 		#region ===== INSERT =====
+
+		/// <summary>
+		/// Insert values into <#= objectSchema #>.<#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param><#= docString #>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			<#= functionParmsString #>)
+		{
+			return <#=functionName #>( sqlConnection, sqlTransaction, "<#= connectionKey #>", <#=functionString#> );
+		}
+		
+		/// <summary>
+		/// Insert values into <#= objectSchema #>.<#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="connectionKeyName">Connection key name located in config file.</param><#= docString #>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			string connectionKeyName,
+			<#= functionParmsString #>)
+		{
+			SqlConnection connection = CustomSqlHelper.CreateConnection(CustomSqlHelper.GetConnectionStringFromConnectionStrings(connectionKeyName), sqlConnection);
+			SqlTransaction transaction = sqlTransaction;
+			
+			using (SqlCommand command = CustomSqlHelper.CreateCommand("<#= functionName #>", connection, transaction, 
+				<#= commandParmsString #>))
+			{
+				using (CustomSqlHelper<<#= objectName #>> helper = new CustomSqlHelper<<#= objectName #>>())
+				{
+					CustomGenericList<<#= objectName #>> list = helper.ExecuteReader(command);
+					if (list.Count > 0)
+					{
+						<#= objectName #> o = list[0];
+						list = null;
+						return o;
+					}
+					else
+					{
+						return null;
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Insert values into <#= objectSchema #>.<#= objectName #>. Returns an object of type <#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="value">Object of type <#= objectName #>.</param>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			<#= objectName #> value)
+		{
+			return <#= functionName #>(sqlConnection, sqlTransaction, "<#= connectionKey #>", value);
+		}
+		
+		/// <summary>
+		/// Insert values into <#= objectSchema #>.<#= objectName #>. Returns an object of type <#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="connectionKeyName">Connection key name located in config file.</param>
+		/// <param name="value">Object of type <#= objectName #>.</param>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			string connectionKeyName,
+			<#= objectName #> value)
+		{
+			return <#= functionName #>(sqlConnection, sqlTransaction, connectionKeyName,
+				<#= valueParmsString #>);
+		}
+		
+		#endregion ===== INSERT =====
+
+<#+
+		return valueParmsString;
+	}
+#>
+
+<#+
+	private string renderDalDelete(List<DBColumn> columns, string objectSchema, string objectName, string functionName, string connectionKey)
+	{
+		StringBuilder commandParmsSb = new StringBuilder();
+		StringBuilder functionParmsSb = new StringBuilder();
+		StringBuilder functionSb = new StringBuilder();
+		StringBuilder valueParmsSb = new StringBuilder();
+		StringBuilder docSb = new StringBuilder();
+		int x = 0;
+		foreach (DBColumn column in columns)
+		{
+			string size = "null";
+			if (column.CharacterMaxLength > 0) size = column.CharacterMaxLength.ToString();
+			
+			if (column.IsInPrimaryKey)
+			{
+				if (x > 0)
+				{
+					commandParmsSb.AppendFormat(",\r\n\t\t\t\t\t");
+					functionParmsSb.AppendFormat(",\r\n\t\t\t");
+					functionSb.Append(", " );
+					valueParmsSb.AppendFormat(",\r\n\t\t\t\t");
+				}
+
+				commandParmsSb.AppendFormat("CustomSqlHelper.CreateInputParameter(\"{0}\", {1}, {2}, {3}, {4})", 
+					column.Name, column.DataProviderType, size, 
+					column.IsNullable.ToString().ToLower(), column.ParamName());
+				docSb.AppendFormat("\r\n\t\t/// <param name=\"{0}\"></param>", column.ParamName());
+				functionParmsSb.AppendFormat("{0} {1}",  column.Type(), column.ParamName());
+				functionSb.Append( column.ParamName());
+				valueParmsSb.AppendFormat("value.{0}", column.Alias);
+						
+				x++;
+			}
+		}
+		
+		commandParmsSb.AppendFormat(", \r\n\t\t\t\t\tCustomSqlHelper.CreateReturnValueParameter(\"ReturnCode\", SqlDbType.Int, null, false)");
+		
+		string commandParmsString = commandParmsSb.ToString();
+		string functionParmsString = functionParmsSb.ToString();
+		string functionString = functionSb.ToString();
+		string docString = docSb.ToString();
+		string valueParmsString = valueParmsSb.ToString();
+		
+		commandParmsSb = null;
+		functionParmsSb = null;
+		functionSb = null;
+		docSb = null;
+		
+#>		#region ===== DELETE =====
+
+		/// <summary>
+		/// Delete values from <#= objectSchema #>.<#= objectName #> by primary key(s).
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param><#= docString #>
+		/// <returns>true if successful otherwise false.</returns>
+		public bool <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			<#= functionParmsString #>)
+		{
+			return <#= functionName #>( sqlConnection, sqlTransaction, "<#= connectionKey #>", <#= functionString #> );
+		}
+		
+		/// <summary>
+		/// Delete values from <#= objectSchema #>.<#= objectName #> by primary key(s).
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="connectionKeyName">Connection key name located in config file.</param><#= docString #>
+		/// <returns>true if successful otherwise false.</returns>
+		public bool <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			string connectionKeyName,
+			<#= functionParmsString #>)
+		{
+			SqlConnection connection = CustomSqlHelper.CreateConnection(CustomSqlHelper.GetConnectionStringFromConnectionStrings(connectionKeyName), sqlConnection);
+			SqlTransaction transaction = sqlTransaction;
+			
+			using (SqlCommand command = CustomSqlHelper.CreateCommand("<#= functionName #>", connection, transaction, 
+				<#= commandParmsString #>))
+			{
+				int returnCode = CustomSqlHelper.ExecuteNonQuery(command, "ReturnCode");
+				
+				if (transaction == null)
+				{
+					CustomSqlHelper.CloseConnection(connection);
+				}
+				
+				if (returnCode == 0)
+				{
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+		}
+		
+		#endregion ===== DELETE =====
+
+<#+
+		return valueParmsString;
+	}
+#>
+
+<#+
+	private string renderDalUpdate(List<DBColumn> columns, string objectSchema, string objectName, string functionName, string connectionKey)
+	{
+		StringBuilder commandParmsSb = new StringBuilder();
+		StringBuilder functionParmsSb = new StringBuilder();
+		StringBuilder functionSb = new StringBuilder();
+		StringBuilder docSb = new StringBuilder();
+		StringBuilder valueParmsSb = new StringBuilder();
+		
+		int x = 0;
+		foreach (DBColumn column in columns)
+		{
+			if (!DataAccess.isModifiedDate(column) &&
+				!DataAccess.isCreatedDate(column) &&
+				!DataAccess.isAuthorityId(column) &&
+				!DataAccess.isCreationUserId(column)	)
+			{
+				string size = "null";
+				if (column.CharacterMaxLength > 0) size = column.CharacterMaxLength.ToString();
+	
+				if (x > 0)
+				{
+					commandParmsSb.AppendFormat(",\r\n\t\t\t\t\t");
+					functionParmsSb.AppendFormat(",\r\n\t\t\t");
+					functionSb.Append( ", " );
+					valueParmsSb.AppendFormat(",\r\n\t\t\t\t");
+				}
+	
+				commandParmsSb.AppendFormat("CustomSqlHelper.CreateInputParameter(\"{0}\", {1}, {2}, {3}, {4})", 
+					column.Name, column.DataProviderType, size, 
+					column.IsNullable.ToString().ToLower(), column.ParamName());
+					
+				docSb.AppendFormat("\r\n\t\t/// <param name=\"{0}\"></param>", column.ParamName());
+				functionParmsSb.AppendFormat("{0} {1}", column.Type(), column.ParamName());
+				functionSb.Append(column.ParamName());
+				valueParmsSb.AppendFormat("value.{0}", column.Alias);
+	
+				x++;
+			}
+		}
+		
+		commandParmsSb.AppendFormat(", \r\n\t\t\t\t\tCustomSqlHelper.CreateReturnValueParameter(\"ReturnCode\", SqlDbType.Int, null, false)");
+		
+		string commandParmsString = commandParmsSb.ToString();
+		string functionParmsString = functionParmsSb.ToString();
+		string functionString = functionSb.ToString();
+		string docString = docSb.ToString();
+		string valueParmsString = valueParmsSb.ToString();
+		
+		commandParmsSb = null;
+		functionParmsSb = null;
+		functionSb = null;
+		docSb = null;
+		valueParmsSb = null;
+		
+#> 		#region ===== UPDATE =====
+
+		/// <summary>
+		/// Update values in <#= objectSchema #>.<#= objectName #>. Returns an object of type <#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param><#= docString #>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			<#= functionParmsString #>)
+		{
+			return <#= functionName #>( sqlConnection, sqlTransaction, "<#= connectionKey #>", <#= functionString #>);
+		}
+		
+		/// <summary>
+		/// Update values in <#= objectSchema #>.<#= objectName #>. Returns an object of type <#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="connectionKeyName">Connection key name located in config file.</param><#= docString #>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			string connectionKeyName,
+			<#= functionParmsString #>)
+		{
+			SqlConnection connection = CustomSqlHelper.CreateConnection(CustomSqlHelper.GetConnectionStringFromConnectionStrings(connectionKeyName), sqlConnection);
+			SqlTransaction transaction = sqlTransaction;
+			
+			using (SqlCommand command = CustomSqlHelper.CreateCommand("<#= functionName #>", connection, transaction, 
+				<#= commandParmsString #>))
+			{
+				using (CustomSqlHelper<<#= objectName #>> helper = new CustomSqlHelper<<#= objectName #>>())
+				{
+					CustomGenericList<<#= objectName #>> list = helper.ExecuteReader(command);
+					if (list.Count > 0)
+					{
+						<#= objectName #> o = list[0];
+						list = null;
+						return o;
+					}
+					else
+					{
+						return null;
+					}
+				}
+			}
+		}
+		
+		/// <summary>
+		/// Update values in <#= objectSchema #>.<#= objectName #>. Returns an object of type <#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="value">Object of type <#= objectName #>.</param>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			<#= objectName #> value)
+		{
+			return <#= functionName #>(sqlConnection, sqlTransaction, "<#= connectionKey #>", value );
+		}
+		
+		/// <summary>
+		/// Update values in <#= objectSchema #>.<#= objectName #>. Returns an object of type <#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="connectionKeyName">Connection key name located in config file.</param>
+		/// <param name="value">Object of type <#= objectName #>.</param>
+		/// <returns>Object of type <#= objectName #>.</returns>
+		public <#= objectName #> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			string connectionKeyName,
+			<#= objectName #> value)
+		{
+			return <#= functionName #>(sqlConnection, sqlTransaction, connectionKeyName,
+				<#= valueParmsString #>);
+		}
+		
+		#endregion ===== UPDATE =====
+
+<#+
+		return valueParmsString;
+	}
+#>
+
+<#+
+	private void renderCsDalManage(string objectSchema, string objectName, 
+		string functionName, string insertFunctionName, 
+		string insertParmsString, string deleteFunctionName, 
+		string deleteParmsString, string updateFunctionName, 
+		string updateParmsString, string connectionKey)
+	{
+		string insertParms = insertParmsString.Replace("\r\n", "\r\n\t\t");
+		string deleteParms = deleteParmsString.Replace("\r\n", "\r\n\t\t");
+		string updateParms = updateParmsString.Replace("\r\n", "\r\n\t\t");
+		
+#>		#region ===== MANAGE =====
+		
+		/// <summary>
+		/// Manage <#= objectSchema #>.<#= objectName #> object.
+		/// If the object is of type CustomObjectBase, 
+		/// then either insert values into, delete values from, or update values in <#= objectSchema #>.<#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="value">Object of type <#= objectName #>.</param>
+		/// <returns>Object of type CustomDataAccessStatus<<#= objectName #>>.</returns>
+		public CustomDataAccessStatus<<#= objectName #>> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			<#= objectName #> value <#= printUserId( insertParms ) #> )
+		{
+			return <#= functionName #>( sqlConnection, sqlTransaction, "<#= connectionKey #>", value <#= getUserId( insertParms ) #> );
+		}
+		
+		/// <summary>
+		/// Manage <#= objectSchema #>.<#= objectName #> object.
+		/// If the object is of type CustomObjectBase, 
+		/// then either insert values into, delete values from, or update values in <#= objectSchema #>.<#= objectName #>.
+		/// </summary>
+		/// <param name="sqlConnection">Sql connection or null.</param>
+		/// <param name="sqlTransaction">Sql transaction or null.</param>
+		/// <param name="connectionKeyName">Connection key name located in config file.</param>
+		/// <param name="value">Object of type <#= objectName #>.</param>
+		/// <returns>Object of type CustomDataAccessStatus<<#= objectName #>>.</returns>
+		public CustomDataAccessStatus<<#= objectName #>> <#= functionName #>(
+			SqlConnection sqlConnection, 
+			SqlTransaction sqlTransaction, 
+			string connectionKeyName,
+			<#= objectName #> value <#= printUserId( insertParms ) #> )
+		{
+			if (value.IsNew && !value.IsDeleted)
+			{
+				<#= printCreationUserID( insertParms ) #>
+				<#= printLastModifiedUserID( insertParms ) #>
+				<#= objectName #> returnValue = <#= insertFunctionName #>(sqlConnection, sqlTransaction, connectionKeyName,
+					<#= insertParms #>);
+				
+				return new CustomDataAccessStatus<<#= objectName #>>(
+					CustomDataAccessContext.Insert, 
+					true, returnValue);
+			}
+			else if (!value.IsNew && value.IsDeleted)
+			{
+				if (<#= deleteFunctionName #>(sqlConnection, sqlTransaction, connectionKeyName,
+					<#= deleteParms #>))
+				{
+				return new CustomDataAccessStatus<<#= objectName #>>(
+					CustomDataAccessContext.Delete, 
+					true, value);
+				}
+				else
+				{
+				return new CustomDataAccessStatus<<#= objectName #>>(
+					CustomDataAccessContext.Delete, 
+					false, value);
+				}
+			}
+			else if (value.IsDirty && !value.IsDeleted)
+			{
+				<#= printLastModifiedUserID( insertParms ) #>
+				<#= objectName #> returnValue = <#= updateFunctionName #>(sqlConnection, sqlTransaction, connectionKeyName,
+					<#= updateParms #>);
+					
+				return new CustomDataAccessStatus<<#= objectName #>>(
+					CustomDataAccessContext.Update, 
+					true, returnValue);
+			}
+			else
+			{
+				return new CustomDataAccessStatus<<#= objectName #>>(
+					CustomDataAccessContext.NA, 
+					false, value);
+			}
+		}
+		
+		#endregion ===== MANAGE =====
+
+<#+
+	}
+#>
+
+<#+
+	private string printUserId( string values )
+	{
+		if ( values.IndexOf( "CreationUserID" ) > 0 || values.IndexOf( "LastModifiedUserID" ) > 0 )
+		{
+			return ", int userId";
+		}
+		else
+		{
+			return "";
+		}
+	}
+	
+	private string getUserId( string values )
+	{
+		if ( values.IndexOf( "CreationUserID" ) > 0 || values.IndexOf( "LastModifiedUserID" ) > 0 )
+		{
+			return ", userId";
+		}
+		else
+		{
+			return "";
+		}
+	}
+	
+	private string printCreationUserID( string values )
+	{
+		if ( values.IndexOf( "CreationUserID" ) > 0 )
+		{
+			return "value.CreationUserID = userId;";
+		}
+		else
+		{
+			return "";
+		}
+	}
+	
+	private string printLastModifiedUserID( string values )
+	{
+		if ( values.IndexOf( "LastModifiedUserID" ) > 0 )
+		{
+			return "value.LastModifiedUserID = userId;";
+		}
+		else
+		{
+			return "";
+		}
+	}
+#>

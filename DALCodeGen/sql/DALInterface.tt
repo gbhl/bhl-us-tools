@@ -1,0 +1,40 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".txt" #>
+
+<# 
+renderDALInterface(this._objectSchema, this._objectName, this._classNamespace, this._interfaceNamespace, this._interfaceName, this._interfaceBody);
+#>
+
+<#+
+private void renderDALInterface(string objectSchema, string objectName, string classNamespace, string interfaceNamespace, string interfaceName, StringBuilder interfaceBody)
+{
+	DateTime generated = DateTime.Now;
+	string interfaceBodyString = interfaceBody.ToString();
+#>
+// Generated <#= generated.ToString() #>
+// Do not modify the contents of this code file.
+// Interface <#= interfaceName #> based upon <#= objectSchema #>.<#= objectName #>.
+
+#region using
+
+using System;
+using System.Data.SqlClient;
+using CustomDataAccess;
+using <#= classNamespace #>;
+
+#endregion using
+
+namespace <#= interfaceNamespace #>
+{
+	public interface <#= interfaceName #>
+	{
+<#= interfaceBodyString #>
+	}
+}
+<#+	
+}
+#>

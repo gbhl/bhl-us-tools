@@ -1,0 +1,154 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".txt" #>
+
+<# 
+renderSqlInsert(this._columns.ToArray(), this._objectSchema, this._objectName, this._procedureName); 
+#>
+
+<#+
+	private void renderSqlInsert(DBColumn[] columns, string schemaName, string objectName, string procedureName)
+	{
+		DateTime generated = DateTime.Now;
+		StringBuilder entrySb = new StringBuilder();
+		StringBuilder columnSb = new StringBuilder();
+		StringBuilder valueSb = new StringBuilder();
+		StringBuilder returnSelectSb = new StringBuilder();
+		StringBuilder returnWhereSb = new StringBuilder();
+		
+		string returnAction = string.Empty;
+
+		int v = 0;
+		int w = 0;
+		int x = 0;
+		int y = 0;
+		
+		foreach (DBColumn column in columns)
+		{
+			if (!column.IsComputed)
+			{
+				// special columns recognized by name and data type only
+				if (!DataAccess.isModifiedDate(column) &&
+					!DataAccess.isCreatedDate(column) )
+				{
+					if (x > 0) entrySb.AppendFormat(",\r\n");
+					entrySb.AppendFormat("@{0} {1}", column.Name, column.DataTypeNameComplete.ToUpper());
+		
+					if (column.IsAutoKey)
+					{
+						entrySb.AppendFormat(" OUTPUT");
+					}
+					else if (column.IsNullable)
+					{
+						entrySb.AppendFormat(" = null");
+					}
+					
+					x++;
+				}
+			}
+			
+			if (!column.IsComputed && !column.IsAutoKey)
+			{
+				if (y > 0)
+				{
+					columnSb.AppendFormat(",\r\n");
+					valueSb.AppendFormat(",\r\n");
+				}
+				
+				columnSb.AppendFormat("\t[{0}]", column.Name);
+				
+				// special columns recognized by name and data type only
+				if (DataAccess.isModifiedDate(column))
+				{
+					valueSb.AppendFormat("\tgetdate()"); // default function
+				}
+				else if (DataAccess.isCreatedDate(column))
+				{
+					valueSb.AppendFormat("\tgetdate()"); // default function
+				}
+				else
+				{
+					valueSb.AppendFormat("\t@{0}", column.Name);
+				}
+				
+				y++;
+			}
+			
+			if (column.IsAutoKey) returnAction = string.Format("\r\nSET @{0} = Scope_Identity()\r\n", column.Name);
+			if (v > 0) returnSelectSb.AppendFormat(",\r\n");
+			returnSelectSb.AppendFormat("\t\t[{0}]", column.Name);
+			v++;
+
+			if (column.IsInPrimaryKey)
+			{
+				if (w > 0) returnWhereSb.AppendFormat(" AND\r\n");
+				returnWhereSb.AppendFormat("\t\t[{0}] = @{0}", column.Name);
+				w++;
+			}
+		}
+		
+		string entryString = entrySb.ToString();
+		string columnString = columnSb.ToString();
+		string valueString = valueSb.ToString();
+		string returnSelectString = returnSelectSb.ToString();
+		string returnWhereString = returnWhereSb.ToString();
+		
+		entrySb = null;
+		columnSb = null;
+		valueSb = null;
+		returnSelectSb = null;
+		returnWhereSb = null;
+#>
+IF EXISTS(SELECT * FROM dbo.sysobjects WHERE id = object_id(N'[<#= schemaName #>].[<#= procedureName #>]') AND OBJECTPROPERTY(id, N'IsProcedure') = 1)
+DROP PROCEDURE [dbo].[<#= procedureName #>]
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
+-- Insert Procedure for <#= schemaName #>.<#= objectName #>
+-- Do not modify the contents of this procedure.
+-- Generated <#= generated.ToString() #>
+
+CREATE PROCEDURE <#= schemaName #>.<#= procedureName #>
+
+<#= entryString #>
+
+AS 
+
+SET NOCOUNT ON
+
+INSERT INTO [<#= schemaName #>].[<#= objectName #>]
+( <#= columnString #> )
+VALUES
+( <#= valueString #> )
+<#= returnAction #>
+IF @@ERROR <> 0
+BEGIN
+	-- raiserror will throw a SqlException
+	RAISERROR('An error occurred in procedure <#= schemaName #>.<#= procedureName #>. No information was inserted as a result of this request.', 16, 1)
+	RETURN 9 -- error occurred
+END
+ELSE BEGIN
+	SELECT
+<#= returnSelectString #>	
+	FROM [<#= schemaName #>].[<#= objectName #>]
+	WHERE
+<#= returnWhereString #>
+	
+	RETURN -- insert successful
+END
+GO
+ 
+SET QUOTED_IDENTIFIER OFF
+GO
+SET ANSI_NULLS ON
+GO
+<#+	
+	}
+#>

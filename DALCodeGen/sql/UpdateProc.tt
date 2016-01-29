@@ -1,0 +1,197 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".txt" #>
+
+<# 
+renderSqlUpdate(this._columns.ToArray(), this._objectSchema, this._objectName, this._procedureName); 
+#>
+
+<#+
+	private void renderSqlUpdate(DBColumn[] columns, string schemaName, string objectName, string procedureName)
+	{
+		DateTime generated = DateTime.Now;
+		StringBuilder entrySb = new StringBuilder();
+		StringBuilder setSb = new StringBuilder();
+		StringBuilder whereSb = new StringBuilder();
+		StringBuilder ccSelectSb = new StringBuilder();
+		StringBuilder ccWhereSb = new StringBuilder();
+		StringBuilder returnSelectSb = new StringBuilder();
+		StringBuilder returnWhereSb = new StringBuilder();
+		
+		int v = 0; // used in conjunction with returnSelectSb
+		int w = 0; // used in conjunction with ccSelectSb, ccWhereSb
+		int x = 0; // used in conjunction with entrySb
+		int y = 0; // used in conjunction with setSb
+		int z = 0; // used in conjunction with whereSb
+		
+		bool optimisticConcurrency = false;
+		
+		foreach (DBColumn column in columns)
+		{
+			if (!DataAccess.isModifiedDate(column) && 
+				!DataAccess.isCreatedDate(column) && 
+				!DataAccess.isCreationUserId(column) )
+			{
+				// entry values; Note does not include the recognized special columns
+				if (x > 0) entrySb.AppendFormat(",\r\n");
+				entrySb.AppendFormat("@{0} {1}", column.Name, column.DataTypeNameComplete.ToUpper());
+				x++;
+			}
+			
+			// set values; Note does not include computed columns, auto key columns, recognized special columns handled discreetly
+			if (!column.IsComputed && !column.IsAutoKey && !DataAccess.isCreatedDate(column) && !DataAccess.isCreationUserId(column))
+			{
+				if (y > 0) setSb.AppendFormat(",\r\n");
+				
+				if (DataAccess.isModifiedDate(column))
+				{
+					setSb.AppendFormat("\t[{0}] = getdate()", column.Name);
+				}
+				else
+				{
+					setSb.AppendFormat("\t[{0}] = @{0}", column.Name);
+				}
+				
+				y++;
+			}
+			
+			if (column.IsInPrimaryKey || column.IsComputed)
+			{
+				if (z > 0) whereSb.AppendFormat(" AND\r\n");
+				whereSb.AppendFormat("\t[{0}] = @{0}", column.Name);
+				z++;
+			}
+			
+			if (column.IsInPrimaryKey)
+			{
+				if (w > 0)
+				{
+					ccSelectSb.AppendFormat(", ");
+					ccWhereSb.AppendFormat(" AND ");
+					returnWhereSb.AppendFormat(" AND \r\n");
+				}
+				
+				ccSelectSb.AppendFormat("[{0}]", column.Name);
+				ccWhereSb.AppendFormat("[{0}] = @{0}", column.Name);
+				returnWhereSb.AppendFormat("\t\t[{0}] = @{0}", column.Name);
+				
+				w++;
+			}
+			
+			if (column.IsComputed && column.DataTypeName == "timestamp") optimisticConcurrency = true;
+			if (v > 0) returnSelectSb.AppendFormat(",\r\n");
+			
+			returnSelectSb.AppendFormat("\t\t[{0}]", column.Name);
+			
+			v++;
+		}
+		
+		string entryString = entrySb.ToString();
+		string setString = setSb.ToString();
+		string whereString = whereSb.ToString();
+		string ccString = string.Format("SELECT {0} FROM {1} WHERE {2}", ccSelectSb.ToString(), objectName, ccWhereSb.ToString());
+		string returnSelectString = returnSelectSb.ToString();
+		string returnWhereString = returnWhereSb.ToString();
+		
+		entrySb = null;
+		setSb = null;
+		whereSb = null;
+		ccSelectSb = null;
+		ccWhereSb = null;
+		returnSelectSb = null;
+		returnWhereSb = null;
+#>
+IF EXISTS(SELECT * FROM dbo.sysobjects WHERE id = object_id(N'[<#= schemaName #>].[<#= procedureName #>]') AND OBJECTPROPERTY(id, N'IsProcedure') = 1)
+DROP PROCEDURE [<#= schemaName #>].[<#= procedureName #>]
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+
+-- Update Procedure for <#= schemaName #>.<#= objectName #>
+-- Do not modify the contents of this procedure.
+-- Generated <#= generated.ToString() #>
+
+CREATE PROCEDURE <#= schemaName #>.<#= procedureName #>
+
+<#= entryString #>
+
+AS 
+
+SET NOCOUNT ON
+
+UPDATE [<#= schemaName #>].[<#= objectName #>]
+SET
+<#= setString #>
+WHERE
+<#= whereString #>
+<#+		if (optimisticConcurrency)
+		{
+#>
+------------------------------------------------------------------------------------------------------------------------------------------------------",
+-- Note about OPTIMISTIC CONCURRENCY
+
+-- The SQL Server timestamp (alias rowversion) field is modified everytime a change is made to the row containing it.
+-- Verification that the timestamp contains the same original value is assurance that none of the fields have been changed prior to this update request.
+
+-- If the number of rows affected equals zero, then the update failed, else the update request was successful.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+
+IF @@ROWCOUNT = 0 -- zero records affected
+BEGIN
+	IF EXISTS(<#= ccString #>) BEGIN
+		-- raiserror will throw a SqlException
+		RAISERROR('A optimistic concurrency error occurred in procedure <#= schemaName #>.<#= procedureName #>. No information was updated as a result of this request because some of the information had been changed prior to this update request.', 16, 1)
+		RETURN 8 -- concurrency failure; the record exists, but the concurrency (timestamp) field had changed prior to this request
+	END
+	ELSE BEGIN
+		-- raiserror will throw a SqlException
+		RAISERROR('An error occurred in procedure <#= schemaName #>.<#= procedureName #>. No information was updated as a result of this request because the record could not be accessed based upon the key information provided.', 16, 1)
+		RETURN 9 -- record does not exist based upon the primary key(s)
+	END
+END
+ELSE BEGIN
+	SELECT
+<#= returnSelectString #>
+	FROM [<#= schemaName #>].[<#= objectName #>]
+	WHERE
+<#= returnWhereString #>
+	
+	RETURN -- update successful
+END
+<#+		}
+		else
+		{
+#>		
+IF @@ERROR <> 0
+BEGIN
+	-- raiserror will throw a SqlException
+	RAISERROR('An error occurred in procedure <#= schemaName #>.<#= procedureName #>. No information was updated as a result of this request.', 16, 1)
+	RETURN 9 -- error occurred
+END
+ELSE BEGIN
+	SELECT
+<#= returnSelectString #>
+	FROM [<#= schemaName #>].[<#= objectName #>]
+	WHERE
+<#= returnWhereString #>
+	
+	RETURN -- update successful
+END
+<#+		}
+#>
+GO
+ 
+SET QUOTED_IDENTIFIER OFF
+GO
+SET ANSI_NULLS ON
+GO
+<#+	
+	}
+#>

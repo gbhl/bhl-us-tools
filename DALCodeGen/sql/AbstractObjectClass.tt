@@ -1,0 +1,359 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".txt" #>
+
+<# 
+renderAbstractClass(this._classNamespace, this._objectSchema, this._objectName, this._className, this._columns.ToArray()); 
+#>
+
+<#+
+private void renderAbstractClass(string classNamespace, string objectSchema, string objectName, string className, DBColumn[] tableColumns)
+{
+	DateTime generated = DateTime.Now;
+
+	StringBuilder sb = new StringBuilder();
+	int x = 0;
+	foreach (DBColumn column in tableColumns)
+	{
+		if (x < tableColumns.Length)
+		{
+			sb.AppendFormat("{0} {1}", column.Type(), column.ParamName());				
+			if (x < tableColumns.Length -1) sb.AppendFormat(", \r\n\t\t\t");
+		}			
+		x++;
+	}		
+	string constructorParms = sb.ToString();
+
+#>
+// Generated <#= generated.ToString() #>
+// Do not modify the contents of this code file.
+// This abstract class <#= className #> is based upon <#= objectSchema #>.<#= objectName #>.
+
+#region How To Implement
+
+// To implement, create another code file as outlined in the following example.
+// It is recommended the code file you create be in the same project as this code file.
+// Example:
+// using System;
+//
+// namespace <#= classNamespace #>
+// {
+//		[Serializable]
+// 		public class <#= objectName #> : <#= className #>
+//		{
+//		}
+// }
+
+#endregion How To Implement
+
+#region Using 
+
+using System;
+using System.Data;
+using CustomDataAccess;
+
+#endregion Using
+
+namespace <#= classNamespace #>
+{
+	[Serializable]
+	public abstract class <#= className #> : CustomObjectBase, ICloneable, IComparable, IDisposable, ISetValues
+	{
+		#region Constructors
+		
+		/// <summary>
+		/// Default constructor.
+		/// </summary>
+		public <#= className #>()
+		{
+		}
+
+		/// <summary>
+		/// Overloaded constructor specifying each column value.
+		/// </summary>
+		<#+ foreach (DBColumn column in tableColumns)
+		{#>
+/// <param name="<#= column.ParamName() #>"></param>
+		<#+}#>
+public <#= className #>(<#= constructorParms #>) : this()
+		{
+		<#+ foreach (DBColumn column in tableColumns)
+		{#>
+	<#= column.SetName() #> = <#= column.ParamName() #>;
+		<#+}#>
+}
+		
+		#endregion Constructors
+		
+		#region Destructor
+		
+		/// <summary>
+		///
+		/// </summary>
+		~<#= className #>()
+		{
+		}
+		
+		#endregion Destructor
+		
+		#region Set Values
+		
+		/// <summary>
+		/// Set the property values of this instance from the specified <see cref="CustomDataRow"/>.
+		/// </summary>
+		public virtual void SetValues(CustomDataRow row)
+		{
+			foreach (CustomDataColumn column in row)
+			{
+				switch (column.Name)
+				{
+				<#+ foreach (DBColumn column in tableColumns){#>
+	case "<#= column.Name #>" :
+					{
+						<#= column.VariableName() #> = (<#= column.Type() #>)column.Value;
+						break;
+					}
+				<#+}#>
+				}
+			}
+			
+			IsNew = false;
+		}
+		
+		#endregion Set Values
+		
+		#region Properties
+		<#+ foreach (DBColumn column in tableColumns)
+		{#>
+
+		#region <#= column.PropertyName() #>
+		
+		private <#= column.Type() #> <#= column.VariableName() #><#= column.DefaultValue() #>;
+		
+		/// <summary>
+		/// Column: <#= column.Name #>;
+		/// DBMS data type: <#= column.DataTypeNameComplete #>;<#+ if (column.IsAutoKey){#> Auto key;<#+} if (column.IsComputed){#> Computed;<#+} if (column.IsNullable){#> Nullable;<#+}#>
+
+		/// </summary>
+		<#= column.ColumnDefinition() #>
+		public <#= column.Type() #> <#= column.PropertyName() #>
+		{
+			get
+			{
+				return <#= column.VariableName() #>;
+			}<#+ if (!column.IsComputed && !column.IsAutoKey){#>
+
+			set
+			{<#+ if (column.DefaultAction().Trim() != string.Empty){ #>
+
+				<#= column.DefaultAction() #><#+ } #>
+
+				if (<#= column.VariableName() #> != value)
+				{
+					<#= column.VariableName() #> = value;
+					_IsDirty = true;
+				}
+			}<#+ } else {#>
+
+			set
+			{
+				// NOTE: This dummy setter provides a work-around for the following: Read-only properties cannot be exposed by XML Web Services
+				// see http://support.microsoft.com/kb/313584
+				// Cause: When an object is passed i.e. marshalled to or from a Web service, it must be serialized into an XML stream and then deserialized back into an object.
+				// The XML Serializer cannot deserialize the XML back into an object because it cannot load the read-only properties. 
+				// Thus the read-only properties are not exposed through the Web Services Description Language (WSDL). 
+				// Because the Web service proxy is generated from the WSDL, the proxy also excludes any read-only properties.
+			}<#+}#>
+
+		}
+		
+		#endregion <#= column.PropertyName() #>
+		<#+}#>	
+		#endregion Properties
+
+		#region From Array serialization
+		
+		/// <summary>
+		/// Deserializes the byte array and returns an instance of <see cref="<#= className #>"/>.
+		/// </summary>
+		/// <returns>If the byte array can be deserialized and cast to an instance of <see cref="<#= className #>"/>, 
+		/// returns an instance of <see cref="<#= className #>"/>; otherwise returns null.</returns>
+		public static new <#= className #> FromArray(byte[] byteArray)
+		{
+			<#= className #> o = null;
+			
+			try
+			{
+				o = (<#= className #>) CustomObjectBase.FromArray(byteArray);
+			}
+			catch (Exception e)
+			{
+				throw e;
+			}
+
+			return o;
+		}
+		
+		#endregion From Array serialization
+
+		#region CompareTo
+		
+		/// <summary>
+		/// Compares this instance with a specified object. Throws an ArgumentException if the specified object is not of type <see cref="<#= className #>"/>.
+		/// </summary>
+		/// <param name="obj">An <see cref="<#= className #>"/> object to compare with this instance.</param>
+		/// <returns>0 if the specified object equals this instance; -1 if the specified object does not equal this instance.</returns>
+		public virtual int CompareTo(Object obj)
+		{
+			if (obj is <#= className #>)
+			{
+				<#= className #> o = (<#= className #>) obj;
+				
+				if (<#+ string conjunction = string.Empty; 
+				if (tableColumns.Length > 0)
+				{
+					conjunction = " &&";
+				}#>
+
+					o.IsNew == IsNew &&
+					o.IsDeleted == IsDeleted<#= conjunction #><#+ int y = 0;
+				foreach (DBColumn column in tableColumns)
+				{
+					if (y < tableColumns.Length -1)
+					{
+						conjunction = "&&";
+					}
+					else
+					{
+						conjunction = "";
+					}
+					y++;
+					string compareTo = string.Empty;
+					
+					if (column.LanguageType == "string")
+					{
+						compareTo = string.Format("GetComparisonString(o.{0}) == GetComparisonString({0}) {1}", column.PropertyName(), conjunction);
+					}
+					else
+					{
+						compareTo = string.Format("o.{0} == {0} {1}", column.PropertyName(), conjunction);
+					}
+					#>
+
+					<#= compareTo #><#+}#>
+
+				)
+				{
+					o = null;
+					return 0; // true
+				}
+				else
+				{
+					o = null;
+					return -1; // false
+				}
+			}
+			else
+			{
+				throw new ArgumentException("Argument is not of type <#= className #>");
+			}
+		}
+ 		
+		#endregion CompareTo
+		
+		#region Operators
+		
+		/// <summary>
+		/// Equality operator (==) returns true if the values of its operands are equal, false otherwise.
+		/// </summary>
+		/// <param name="a">The first <see cref="<#= className #>"/> object to compare.</param>
+		/// <param name="b">The second <see cref="<#= className #>"/> object to compare.</param>
+		/// <returns>true if values of operands are equal, false otherwise.</returns>
+		public static bool operator == (<#= className #> a, <#= className #> b)
+		{
+			if (((Object) a) == null || ((Object) b) == null)
+			{
+				if (((Object) a) == null && ((Object) b) == null)
+				{
+					return true;
+				}
+			}
+			else
+			{
+				int r = a.CompareTo(b);
+				
+				if (r == 0)
+				{
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+			
+			return false;
+		}
+		
+		/// <summary>
+		/// Inequality operator (!=) returns false if its operands are equal, true otherwise.
+		/// </summary>
+		/// <param name="a">The first <see cref="<#= className #>"/> object to compare.</param>
+		/// <param name="b">The second <see cref="<#= className #>"/> object to compare.</param>
+		/// <returns>false if values of operands are equal, false otherwise.</returns>
+		public static bool operator !=(<#= className #> a, <#= className #> b)
+		{
+			return !(a == b);
+		}
+		
+		/// <summary>
+		/// Returns true the specified object is equal to this object instance, false otherwise.
+		/// </summary>
+		/// <param name="obj">The <see cref="<#= className #>"/> object to compare with the current <see cref="<#= className #>"/>.</param>
+		/// <returns>true if specified object is equal to the instance of this object, false otherwise.</returns>
+		public override bool Equals(Object obj)
+		{
+			if (!(obj is <#= className #>))
+			{
+				return false;
+			}
+			
+			return this == (<#= className #>) obj;
+		}
+	
+        /// <summary>
+        /// Returns the hash code for this instance.
+        /// </summary>
+        /// <returns>Hash code for this instance as an integer.</returns>
+		public override int GetHashCode()
+		{
+			return base.GetHashCode();
+		}
+		
+		#endregion Operators
+		
+		#region SortColumn
+		
+		/// <summary>
+		/// Use when defining sort columns for a collection sort request.
+		/// For example where list is a instance of <see cref="CustomGenericList">, 
+		/// list.Sort(SortOrder.Ascending, <#= className #>.SortColumn.<#= tableColumns[0].Alias #>);
+		/// </summary>
+		[Serializable]
+		public sealed class SortColumn
+		{<#+foreach (DBColumn column in tableColumns)
+		{#>	
+			public const string <#= column.PropertyName() #> = "<#= column.PropertyName() #>";<#+}#>
+
+		}
+				
+		#endregion SortColumn
+	}
+}
+// end of source generation
+<#+	
+}
+#>
