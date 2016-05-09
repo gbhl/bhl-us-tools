@@ -29,7 +29,7 @@ namespace DALCodeGen.sql
                                         "c.CHARACTER_MAXIMUM_LENGTH, " +
                                         "c.NUMERIC_PRECISION, " +
 		                                "c.NUMERIC_SCALE, " +
-                                        "CASE WHEN tc.CONSTRAINT_TYPE = 'PRIMARY KEY' THEN 1 ELSE 0 END AS IS_IN_PRIMARY_KEY, " +
+                                        "MAX(CASE WHEN tc.CONSTRAINT_TYPE = 'PRIMARY KEY' THEN 1 ELSE 0 END) AS IS_IN_PRIMARY_KEY, " +
                                         "CASE WHEN fk.COLUMN_NAME IS NULL THEN 0 ELSE 1 END AS IS_IN_FOREIGN_KEY, " +
                                         "COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME,'IsComputed') AS IS_COMPUTED, " +
                                         "COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME,'IsIdentity') AS IS_IDENTITY, " +
@@ -69,6 +69,19 @@ namespace DALCodeGen.sql
 
                                 "WHERE c.TABLE_SCHEMA = '" + objectSchema + "' " +
                                 "AND c.TABLE_NAME = '" + objectName + "' " +
+
+                                "GROUP BY " +
+                                        "c.COLUMN_NAME,  " +
+                                        "c.ORDINAL_POSITION, " +
+                                        "c.DATA_TYPE,  " +
+                                        "c.CHARACTER_MAXIMUM_LENGTH,  " +
+                                        "c.NUMERIC_PRECISION,  " +
+                                        "c.NUMERIC_SCALE,  " +
+                                        "CASE WHEN fk.COLUMN_NAME IS NULL THEN 0 ELSE 1 END,  " +
+                                        "COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME, 'IsComputed'),  " +
+                                        "COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME, 'IsIdentity'),  " +
+                                        "c.IS_NULLABLE " +
+
                                 "ORDER BY c.ORDINAL_POSITION";
 
             SqlDataReader reader = command.ExecuteReader();
