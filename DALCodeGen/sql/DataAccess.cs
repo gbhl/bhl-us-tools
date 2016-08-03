@@ -26,7 +26,7 @@ namespace DALCodeGen.sql
             command.CommandText = "SELECT c.COLUMN_NAME, " +
                                         "c.ORDINAL_POSITION, " +
                                         "c.DATA_TYPE, " +
-                                        "c.CHARACTER_MAXIMUM_LENGTH, " +
+                                        "CASE WHEN c.CHARACTER_MAXIMUM_LENGTH = -1 THEN 1073741823 ELSE c.CHARACTER_MAXIMUM_LENGTH END AS CHARACTER_MAXIMUM_LENGTH, " +
                                         "c.NUMERIC_PRECISION, " +
 		                                "c.NUMERIC_SCALE, " +
                                         "MAX(CASE WHEN tc.CONSTRAINT_TYPE = 'PRIMARY KEY' THEN 1 ELSE 0 END) AS IS_IN_PRIMARY_KEY, " +
