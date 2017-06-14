@@ -17,6 +17,8 @@ namespace DALCodeGen.sql
         public List<DBColumn> GetColumns(string objectSchema, string objectName, Dictionary<string, string> languageTypes, 
             Dictionary<string, string> dataProviders)
         {
+            string MAXsize = "1073741823";
+
             SqlConnection connection = new SqlConnection(_connectionString);
             connection.Open();
 
@@ -26,7 +28,7 @@ namespace DALCodeGen.sql
             command.CommandText = "SELECT c.COLUMN_NAME, " +
                                         "c.ORDINAL_POSITION, " +
                                         "c.DATA_TYPE, " +
-                                        "CASE WHEN c.CHARACTER_MAXIMUM_LENGTH = -1 THEN 1073741823 ELSE c.CHARACTER_MAXIMUM_LENGTH END AS CHARACTER_MAXIMUM_LENGTH, " +
+                                        "CASE WHEN c.CHARACTER_MAXIMUM_LENGTH = -1 THEN " + MAXsize + " ELSE c.CHARACTER_MAXIMUM_LENGTH END AS CHARACTER_MAXIMUM_LENGTH, " +
                                         "c.NUMERIC_PRECISION, " +
 		                                "c.NUMERIC_SCALE, " +
                                         "MAX(CASE WHEN tc.CONSTRAINT_TYPE = 'PRIMARY KEY' THEN 1 ELSE 0 END) AS IS_IN_PRIMARY_KEY, " +
@@ -101,9 +103,24 @@ namespace DALCodeGen.sql
                 if (!reader.IsDBNull(reader.GetOrdinal("CHARACTER_MAXIMUM_LENGTH"))) characterMaximum = reader.GetInt32(reader.GetOrdinal("CHARACTER_MAXIMUM_LENGTH")).ToString();
                 column.NumericPrecision = (reader.IsDBNull(reader.GetOrdinal("NUMERIC_PRECISION"))) ? 0 : Convert.ToInt32(reader.GetByte(reader.GetOrdinal("NUMERIC_PRECISION")));
                 column.NumericScale = (reader.IsDBNull(reader.GetOrdinal("NUMERIC_SCALE"))) ? 0 : reader.GetInt32(reader.GetOrdinal("NUMERIC_SCALE"));
+
                 column.DataTypeName = dataType;
-                string dataTypeNameComplete = string.IsNullOrWhiteSpace(characterMaximum) ? dataType : string.Format("{0}({1})", dataType, characterMaximum);
+                string dataTypeNameComplete = string.Empty;
+                if (string.IsNullOrWhiteSpace(characterMaximum) || 
+                    dataType.ToLower() == "text" ||
+                    dataType.ToLower() == "ntext")
+                {
+                    dataTypeNameComplete = dataType;
+                }
+                else
+                {
+                    if (characterMaximum == MAXsize)
+                        dataTypeNameComplete = string.Format("{0}(MAX)", dataType);
+                    else
+                        dataTypeNameComplete = string.Format("{0}({1})", dataType, characterMaximum);
+                }
                 column.DataTypeNameComplete = dataTypeNameComplete;
+
                 column.LanguageType = languageTypes[dataType];
                 column.DataProviderType = dataProviders[dataType];
                 column.CharacterMaxLength = (string.IsNullOrWhiteSpace(characterMaximum)) ? column.CharacterMaxLength : Convert.ToInt32(characterMaximum);
