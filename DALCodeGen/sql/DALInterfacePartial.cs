@@ -31,9 +31,9 @@ namespace DALCodeGen.sql
                 objectName, functionName, functionParmsString);
             _interfaceBody.AppendFormat("\t\t{0} {1}(SqlConnection sqlConnection, SqlTransaction sqlTransaction, string connectionKeyName,\r\n\t\t\t{2});\r\n\r\n",
                 objectName, functionName, functionParmsString);
-            _interfaceBody.AppendFormat("\t\tCustomGenericList<CustomDataRow> {0}Raw(SqlConnection sqlConnection, SqlTransaction sqlTransaction,\r\n\t\t\t{1});\r\n\r\n",
+            _interfaceBody.AppendFormat("\t\tList<CustomDataRow> {0}Raw(SqlConnection sqlConnection, SqlTransaction sqlTransaction,\r\n\t\t\t{1});\r\n\r\n",
                 functionName, functionParmsString);
-            _interfaceBody.AppendFormat("\t\tCustomGenericList<CustomDataRow> {0}Raw(SqlConnection sqlConnection, SqlTransaction sqlTransaction, string connectionKeyName,\r\n\t\t\t{1});\r\n\r\n",
+            _interfaceBody.AppendFormat("\t\tList<CustomDataRow> {0}Raw(SqlConnection sqlConnection, SqlTransaction sqlTransaction, string connectionKeyName,\r\n\t\t\t{1});\r\n\r\n",
                 functionName, functionParmsString);
 
             // Insert methods

@@ -51,6 +51,7 @@ private void renderDAL(string objectSchema, string objectName, string objectName
 #region using
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using CustomDataAccess;
@@ -158,7 +159,7 @@ namespace <#= dalNamespace #>
 			{
 				using (CustomSqlHelper<<#= objectName #>> helper = new CustomSqlHelper<<#= objectName #>>())
 				{
-					CustomGenericList<<#= objectName #>> list = helper.ExecuteReader(command);
+					List<<#= objectName #>> list = helper.ExecuteReader(command);
 					if (list.Count > 0)
 					{
 						<#= objectName #> o = list[0];
@@ -178,8 +179,8 @@ namespace <#= dalNamespace #>
 		/// </summary>
 		/// <param name="sqlConnection">Sql connection or null.</param>
 		/// <param name="sqlTransaction">Sql transaction or null.</param><#= docString #>
-		/// <returns>CustomGenericList&lt;CustomDataRow&gt;</returns>
-		public CustomGenericList<CustomDataRow> <#= functionName #>Raw(
+		/// <returns>List&lt;CustomDataRow&gt;</returns>
+		public List<CustomDataRow> <#= functionName #>Raw(
 			SqlConnection sqlConnection, 
 			SqlTransaction sqlTransaction, 
 			<#= functionParmsString #>)
@@ -193,8 +194,8 @@ namespace <#= dalNamespace #>
 		/// <param name="sqlConnection">Sql connection or null.</param>
 		/// <param name="sqlTransaction">Sql transaction or null.</param>
 		/// <param name="connectionKeyName">Connection key name located in config file.</param><#= docString #>
-		/// <returns>CustomGenericList&lt;CustomDataRow&gt;</returns>
-		public CustomGenericList<CustomDataRow> <#= functionName #>Raw(
+		/// <returns>List&lt;CustomDataRow&gt;</returns>
+		public List<CustomDataRow> <#= functionName #>Raw(
 			SqlConnection sqlConnection, 
 			SqlTransaction sqlTransaction, 
 			string connectionKeyName,
@@ -327,7 +328,7 @@ namespace <#= dalNamespace #>
 			{
 				using (CustomSqlHelper<<#= objectName #>> helper = new CustomSqlHelper<<#= objectName #>>())
 				{
-					CustomGenericList<<#= objectName #>> list = helper.ExecuteReader(command);
+					List<<#= objectName #>> list = helper.ExecuteReader(command);
 					if (list.Count > 0)
 					{
 						<#= objectName #> o = list[0];
@@ -583,7 +584,7 @@ namespace <#= dalNamespace #>
 			{
 				using (CustomSqlHelper<<#= objectName #>> helper = new CustomSqlHelper<<#= objectName #>>())
 				{
-					CustomGenericList<<#= objectName #>> list = helper.ExecuteReader(command);
+					List<<#= objectName #>> list = helper.ExecuteReader(command);
 					if (list.Count > 0)
 					{
 						<#= objectName #> o = list[0];

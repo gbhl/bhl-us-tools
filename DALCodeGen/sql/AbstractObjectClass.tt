@@ -339,7 +339,6 @@ public <#= className #>(<#= constructorParms #>) : this()
 		
 		/// <summary>
 		/// Use when defining sort columns for a collection sort request.
-		/// For example where list is a instance of <see cref="CustomGenericList">, 
 		/// list.Sort(SortOrder.Ascending, <#= className #>.SortColumn.<#= tableColumns[0].Alias #>);
 		/// </summary>
 		[Serializable]
